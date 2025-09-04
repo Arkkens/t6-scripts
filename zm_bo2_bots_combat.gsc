@@ -18,10 +18,19 @@ bot_combat_think( damage, attacker, direction )
                         self cancelgoal("flee");
 
                 // If a Denizen (screecher) is riding the bot, spam melee until it's gone
-                if ( isdefined( self.screecher_weapon ) )
+                if ( isdefined( self.screecher ) )
                 {
                         self allowattack( 0 );
                         self pressmelee();
+                        wait 0.05;
+                        continue;
+                }
+
+                // Avoid attacking when only one zombie remains
+                if ( maps\mp\zombies\_zm_utility::get_current_zombie_count() <= 1 )
+                {
+                        self allowattack( 0 );
+                        self bot_clear_enemy();
                         wait 0.05;
                         continue;
                 }
@@ -228,6 +237,7 @@ bot_combat_main() //checked partially changed to match cerberus output changed a
         if ( maps\mp\zombies\_zm_utility::get_current_zombie_count() <= 1 )
         {
                 self allowattack( 0 );
+                self bot_clear_enemy();
                 return;
         }
 

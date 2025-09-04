@@ -1398,18 +1398,21 @@ bot_buy_wallbuy()
 	weapon = self GetCurrentWeapon();
 	weaponToBuy = undefined;
 	wallbuys = array_randomize(level._spawned_wallbuys);
-	foreach(wallbuy in wallbuys)
-	{
-		if(Distance(wallbuy.origin, self.origin) < 400 && wallbuy.trigger_stub.cost <= self.score && bot_best_gun(wallbuy.trigger_stub.zombie_weapon_upgrade, weapon) && FindPath(self.origin, wallbuy.origin, undefined, 0, 1) && weapon != wallbuy.trigger_stub.zombie_weapon_upgrade && !is_offhand_weapon( wallbuy.trigger_stub.zombie_weapon_upgrade  ))
-		{
-			if(!isdefined(wallbuy.trigger_stub))
-				return;
-			if(!isdefined(wallbuy.trigger_stub.zombie_weapon_upgrade))
-				return;
-			weaponToBuy = wallbuy;
-			break;
-		}
-	}
+        foreach(wallbuy in wallbuys)
+        {
+                if(!isDefined(wallbuy) || !isDefined(wallbuy.trigger_stub) || !isDefined(wallbuy.trigger_stub.zombie_weapon_upgrade))
+                        continue;
+
+                // Skip the Olympia wallbuy
+                if(IsSubStr(wallbuy.trigger_stub.zombie_weapon_upgrade, "rottweil72"))
+                        continue;
+
+                if(Distance(wallbuy.origin, self.origin) < 400 && wallbuy.trigger_stub.cost <= self.score && bot_best_gun(wallbuy.trigger_stub.zombie_weapon_upgrade, weapon) && FindPath(self.origin, wallbuy.origin, undefined, 0, 1) && weapon != wallbuy.trigger_stub.zombie_weapon_upgrade && !is_offhand_weapon( wallbuy.trigger_stub.zombie_weapon_upgrade  ))
+                {
+                        weaponToBuy = wallbuy;
+                        break;
+                }
+        }
 	if(!isdefined(weaponToBuy))
 		return;
 	self AddGoal(weaponToBuy.origin, 75, 2, "weaponBuy");
@@ -2016,6 +2019,10 @@ bot_should_take_weapon(boxWeapon, currentWeapon)
 {
     if(!isDefined(boxWeapon))
         return false;
+
+    // Never take monkey bombs from the box
+    if(IsSubStr(boxWeapon, "cymbal_monkey") || IsSubStr(boxWeapon, "monkey"))
+        return false;
     
     // Check if we already have this weapon
     if(self HasWeapon(boxWeapon))
@@ -2035,7 +2042,7 @@ bot_should_take_weapon(boxWeapon, currentWeapon)
     tier1_weapons = array("raygun_", "thunder", "wave_gun", "mark2", "tesla");
     tier2_weapons = array("galil", "an94", "hamr", "rpd", "lsat", "dsr50");
     tier3_weapons = array("mp5k", "pdw57", "mtar", "mp40", "ak74u", "qcw05");
-    tier4_weapons = array("m14", "870mcs", "r870", "olympia", "fnfal");
+    tier4_weapons = array("m14", "870mcs", "r870", "fnfal");
     
     // Track if current weapon is in specific tier
     currentIsTier1 = false;
