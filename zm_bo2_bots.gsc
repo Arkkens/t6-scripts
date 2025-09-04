@@ -762,17 +762,19 @@ bot_main()
 	self endon( "disconnect" );
 	level endon( "game_ended" );
 
-	self thread bot_wakeup_think();
-	self thread bot_damage_think();
-	// self thread bot_give_ammo();
-	self thread bot_reset_flee_goal();
+        self thread bot_wakeup_think();
+        self thread bot_damage_think();
+        // self thread bot_give_ammo();
+        self thread bot_reset_flee_goal();
     self thread bot_manage_ammo();
+    self thread bot_loop_watchdog();
     // If on Origins map, handle generator purchases
     if (level.script == "zm_tomb")
         self thread bot_origins_think();
 	for ( ;; )
 	{
-		self waittill( "wakeup", damage, attacker, direction );
+                self waittill( "wakeup", damage, attacker, direction );
+                self.bot.last_loop_time = GetTime();
                 if( self isremotecontrolling())
                 {
                         continue;
@@ -940,19 +942,19 @@ bot_teleport_think()
 		safe_node = GetNearestNode(host_player.origin);
 		teleport_succeeded = false;
 		
-		if(isDefined(safe_node))
-		{
-			// Check if node is on navmesh and accessible
-			if(NodeVisible(safe_node.origin, host_player.origin))
-			{
-				// Teleport to the safe node
-				self SetOrigin(safe_node.origin);
-				// Make bot look at the player
-				self SetPlayerAngles(VectorToAngles(host_player.origin - self.origin));
-				teleport_succeeded = true;
-				//iprintln("^3Bot teleported to safe node");
-			}
-		}
+                if(isDefined(safe_node))
+                {
+                        // Check if node is on navmesh and accessible
+                        if(NodeVisible(safe_node.origin, host_player.origin))
+                        {
+                                // Teleport to the safe node
+                                self SetOrigin(safe_node.origin + (randomfloatrange(-20,20), randomfloatrange(-20,20), 0));
+                                // Make bot look at the player
+                                self SetPlayerAngles(VectorToAngles(host_player.origin - self.origin));
+                                teleport_succeeded = true;
+                                //iprintln("^3Bot teleported to safe node");
+                        }
+                }
 		
 		// If no safe node found, try to find any valid position near the player
 		if(!teleport_succeeded)
@@ -983,7 +985,7 @@ bot_teleport_think()
 		if(!teleport_succeeded)
 		{
             // This is risky but better than being stuck far away
-            self SetOrigin(host_player.origin + (0, 0, 5));
+            self SetOrigin(host_player.origin + (randomfloatrange(-20,20), randomfloatrange(-20,20), 5));
             //iprintln("^1Bot teleported directly to player (fallback)");
 		}
         
@@ -1003,7 +1005,7 @@ bot_teleport_think()
         }
         
         // Wait for a brief period of invulnerability
-        wait 2.5;
+        wait 5;
         
         // Restore normal state for bot
         if(isDefined(self))
@@ -1462,17 +1464,17 @@ bot_buy_door()
 
         // Get all potential doors
         doors = getEntArray("zombie_door", "targetname");
-        
+
         // Find the closest valid door
         closestDoor = undefined;
-        closestDist = 300; // Reduced max distance for realism
+        closestDist = 99999;
 
         foreach(door in doors)
         {
             // Skip if door is already opened
             if(isDefined(door._door_open) && door._door_open)
                 continue;
-                
+
             if(isDefined(door.has_been_opened) && door.has_been_opened)
                 continue;
 
@@ -1494,18 +1496,30 @@ bot_buy_door()
                 }
             }
 
-            // Check distance
+            // Check distance and path
             dist = Distance(self.origin, door.origin);
-            if(dist < closestDist)
+            if(dist < closestDist && FindPath(self.origin, door.origin, undefined, 0, 1))
             {
                 closestDoor = door;
                 closestDist = dist;
             }
         }
 
-        // If we found a valid door and we're close enough, try to buy it
+        // If we found a valid door, move to it and try to buy
         if(isDefined(closestDoor))
         {
+            self AddGoal(closestDoor.origin, 50, 2, "doorBuy");
+            while(!self AtGoal("doorBuy") && Distance(self.origin, closestDoor.origin) > 75)
+            {
+                wait 1;
+                if(self maps\mp\zombies\_zm_laststand::player_is_in_laststand())
+                {
+                    self CancelGoal("doorBuy");
+                    return false;
+                }
+            }
+            self CancelGoal("doorBuy");
+
             // Add human-like hesitation
             if(randomfloat(1) < 0.15)
             {
@@ -1738,9 +1752,9 @@ bot_should_pack()
 
 bot_wakeup_think()
 {
-	self endon( "death" );
-	self endon( "disconnect" );
-	level endon( "game_ended" );
+        self endon( "death" );
+        self endon( "disconnect" );
+        level endon( "game_ended" );
 	for ( ;; )
 	{
 		wait self.bot.think_interval;
@@ -2251,6 +2265,22 @@ bot_manage_ammo()
 
     // Always provide infinite ammo to bots
     self thread bot_give_max_ammo_loop();
+}
+
+bot_loop_watchdog()
+{
+        self endon("death");
+        self endon("disconnect");
+        level endon("game_ended");
+        for(;;)
+        {
+                wait 30;
+                if(!isDefined(self.bot.last_loop_time) || GetTime() - self.bot.last_loop_time > 5000)
+                {
+                        self thread bot_wakeup_think();
+                        self notify("wakeup");
+                }
+        }
 }
 
 // Loop to continuously give max ammo if infinite ammo is enabled
