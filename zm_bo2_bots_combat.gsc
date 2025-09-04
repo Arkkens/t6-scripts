@@ -6,16 +6,25 @@
 
 bot_combat_think( damage, attacker, direction )
 {
-	self allowattack( 0 );
-	self pressads( 0 );
-	for ( ;; )
-	{
-		if ( !bot_can_do_combat() )
-		{
-			return;
-		}
-		if(self atgoal("flee"))
-			self cancelgoal("flee");
+        self allowattack( 0 );
+        self pressads( 0 );
+        for ( ;; )
+        {
+                if ( !bot_can_do_combat() )
+                {
+                        return;
+                }
+                if(self atgoal("flee"))
+                        self cancelgoal("flee");
+
+                // If a Denizen (screecher) is riding the bot, spam melee until it's gone
+                if ( isdefined( self.screecher_weapon ) )
+                {
+                        self allowattack( 0 );
+                        self pressmelee();
+                        wait 0.05;
+                        continue;
+                }
 		//FLEE CODE. IF ZOMBIE IS CLOSE TO BOT, BOT WILL TRY TO FIND A PLACE TO RUN AWAY
 		//LOOKING FOR ANOTHER ALTERNATIVE IF DOORS ARE CLOSED AND THE BOT CAN NOT REACH SAID PATH.
 		if(Distance(self.origin, self.bot.threat.position) <= 75 || isdefined(damage))
@@ -215,6 +224,13 @@ bot_combat_main() //checked partially changed to match cerberus output changed a
         {
                 return;
         }
+        // Avoid attacking when only one zombie remains
+        if ( maps\mp\zombies\_zm_utility::get_current_zombie_count() <= 1 )
+        {
+                self allowattack( 0 );
+                return;
+        }
+
         enemy = self.bot.threat.entity;
         if ( isDefined( enemy ) && Distance( self.origin, enemy.origin ) < 70 )
         {
