@@ -400,19 +400,11 @@ bot_buy_box()
 
                 // Set global usage flag
                 level.box_in_use_by_bot = self;
-                current_box.chest_user = self; // Mark user on the box
 
                 // Store state for monitoring
                 self.bot.current_box = current_box;
                 self.bot.waiting_for_box_animation = true;
                 self.bot.box_payment_time = GetTime();
-
-                // Deduct points
-                self maps\mp\zombies\_zm_score::minus_to_player_score(950);
-                self PlaySound("zmb_cha_ching");
-
-                // Ensure interaction is registered
-                self UseButtonPressed();
 
                 // Set cooldown times
                 self.bot.last_box_interaction_time = GetTime();
@@ -1504,26 +1496,15 @@ bot_buy_door()
             self lookat(closestDoor.origin + aim_offset);
             wait randomfloatrange(0.5, 1.5);
 
-            // Deduct points first
-            self maps\mp\zombies\_zm_score::minus_to_player_score(closestDoor.zombie_cost);
-            
-            // Try to call door_buy first, if that function exists on the door
-            if(isDefined(closestDoor.door_buy))
-            {
-                closestDoor thread door_buy();
-            }
-            // Otherwise fallback to direct door_opened call
+            // Simulate player use input
+            self UseButtonPressed();
+
+            // Trigger the door normally so scripts handle cost and state
+            if(isDefined(closestDoor.trigger))
+                closestDoor.trigger notify("trigger", self);
             else
-            {
-                closestDoor thread maps\mp\zombies\_zm_blockers::door_opened(closestDoor.zombie_cost);
-            }
-            
-            // Mark door as opened
-            closestDoor._door_open = 1;
-            closestDoor.has_been_opened = 1;
-            
-            // Play purchase sound
-            self PlaySound("zmb_cha_ching");
+                closestDoor notify("trigger", self);
+
             return true;
         }
     }
