@@ -400,16 +400,11 @@ bot_buy_box()
 
                 // Set global usage flag
                 level.box_in_use_by_bot = self;
-                current_box.chest_user = self; // Mark user on the box
 
                 // Store state for monitoring
                 self.bot.current_box = current_box;
                 self.bot.waiting_for_box_animation = true;
                 self.bot.box_payment_time = GetTime();
-
-                // Deduct points
-                self maps\mp\zombies\_zm_score::minus_to_player_score(950);
-                self PlaySound("zmb_cha_ching");
 
                 // Set cooldown times
                 self.bot.last_box_interaction_time = GetTime();
@@ -464,6 +459,8 @@ bot_monitor_box_animation(box)
             // Clear global usage flag when done
             if(level.box_in_use_by_bot == self)
                 level.box_in_use_by_bot = undefined;
+            if(isDefined(box) && isDefined(box.chest_user) && box.chest_user == self)
+                box.chest_user = undefined;
             self notify("box_usage_complete");
             return;
         }
@@ -485,6 +482,8 @@ bot_monitor_box_animation(box)
         // Clear global usage flag when done
         if(level.box_in_use_by_bot == self)
             level.box_in_use_by_bot = undefined;
+        if(isDefined(box) && isDefined(box.chest_user) && box.chest_user == self)
+            box.chest_user = undefined;
         self notify("box_usage_complete");
         return;
     }
@@ -505,6 +504,8 @@ bot_monitor_box_animation(box)
             // Clear global usage flag when done
             if(level.box_in_use_by_bot == self)
                 level.box_in_use_by_bot = undefined;
+            if(isDefined(box) && isDefined(box.chest_user) && box.chest_user == self)
+                box.chest_user = undefined;
             self notify("box_usage_complete");
             return;
         }
@@ -532,6 +533,8 @@ bot_monitor_box_animation(box)
             self.bot.current_box = undefined;
             if(level.box_in_use_by_bot == self)
                 level.box_in_use_by_bot = undefined;
+            if(isDefined(box) && isDefined(box.chest_user) && box.chest_user == self)
+                box.chest_user = undefined;
             self notify("box_usage_complete");
             return;
         }
@@ -547,6 +550,8 @@ bot_monitor_box_animation(box)
         // Clear global usage flag when done
         if(level.box_in_use_by_bot == self)
             level.box_in_use_by_bot = undefined;
+        if(isDefined(box) && isDefined(box.chest_user) && box.chest_user == self)
+            box.chest_user = undefined;
         self notify("box_usage_complete");
         return;
     }
@@ -566,6 +571,8 @@ bot_monitor_box_animation(box)
         // Clear global usage flag when done
         if(level.box_in_use_by_bot == self)
             level.box_in_use_by_bot = undefined;
+        if(isDefined(box) && isDefined(box.chest_user) && box.chest_user == self)
+            box.chest_user = undefined;
         self notify("box_usage_complete");
         return;
     }
@@ -742,8 +749,11 @@ bot_spawn_init()
 	self.bot.threat.time_first_sight = 0;
 	self.bot.threat.time_recent_sight = 0;
 	self.bot.threat.time_aim_interval = 0;
-	self.bot.threat.time_aim_correct = 0;
-	self.bot.threat.update_riotshield = 0;
+        self.bot.threat.time_aim_correct = 0;
+        self.bot.threat.update_riotshield = 0;
+
+        if(level.script == "zm_transit" || level.script == "zm_transit_dr")
+                self.ignore_lava_damage = 1;
 }
 
 bot_main()
@@ -752,49 +762,67 @@ bot_main()
 	self endon( "disconnect" );
 	level endon( "game_ended" );
 
-	self thread bot_wakeup_think();
-	self thread bot_damage_think();
-	// self thread bot_give_ammo();
-	self thread bot_reset_flee_goal();
+        self thread bot_wakeup_think();
+        self thread bot_damage_think();
+        // self thread bot_give_ammo();
+        self thread bot_reset_flee_goal();
     self thread bot_manage_ammo();
+    self thread bot_loop_watchdog();
+    self thread bot_screecher_melee_monitor();
     // If on Origins map, handle generator purchases
     if (level.script == "zm_tomb")
         self thread bot_origins_think();
 	for ( ;; )
 	{
-		self waittill( "wakeup", damage, attacker, direction );
-		if( self isremotecontrolling())
-		{
-			continue;
-		}
-		else
-		{
-			self bot_combat_think( damage, attacker, direction );
-			self bot_update_follow_host();
-			self bot_update_lookat();
-			self bot_teleport_think();
-			if(is_true(level.using_bot_weapon_logic))
-			{
-				self bot_buy_perks();
-				self bot_buy_wallbuy();
-				self bot_pack_gun();
-				
-			}
-			if(is_true(level.using_bot_revive_logic))
-			{
-				self bot_revive_teammates();
-			}
-			self bot_pickup_powerup();
-			self bot_buy_door();  // Added door buying functionality
-			self bot_clear_debris();  // Added debris clearing functionality
-			self bot_buy_box();  // Added box buying functionality
+                self waittill( "wakeup", damage, attacker, direction );
+                self.bot.last_loop_time = GetTime();
+                if( self isremotecontrolling())
+                {
+                        continue;
+                }
+                else
+                {
+                        if ( maps\mp\zombies\_zm_utility::get_current_zombie_count() <= 1 )
+                        {
+                                self allowattack( 0 );
+                                self.ignoreme = true;
+                                self.takedamage = false;
+                        }
+                        else
+                        {
+                                if ( self.takedamage == false )
+                                {
+                                        self.takedamage = true;
+                                        self.ignoreme = false;
+                                }
+                                self bot_combat_think( damage, attacker, direction );
+                        }
 
-			// Add Origins specific generator activation
-			if(level.script == "zm_tomb")
-			{
-				self thread scripts\zm\zm_bo2_bots_origins::bot_activate_generator();
-			}
-		}	
+                        self bot_update_follow_host();
+                        self bot_update_lookat();
+                        self bot_teleport_think();
+                        if(is_true(level.using_bot_weapon_logic))
+                        {
+                                self bot_buy_perks();
+                                self bot_buy_wallbuy();
+                                self bot_pack_gun();
+
+                        }
+                        if(is_true(level.using_bot_revive_logic))
+                        {
+                                self bot_revive_teammates();
+                        }
+                        self bot_pickup_powerup();
+                        self bot_buy_door();  // Added door buying functionality
+                        self bot_clear_debris();  // Added debris clearing functionality
+                        self bot_buy_box();  // Added box buying functionality
+
+                        // Add Origins specific generator activation
+                        if(level.script == "zm_tomb")
+                        {
+                                self thread scripts\zm\zm_bo2_bots_origins::bot_activate_generator();
+                        }
+                }
 	}
 }
 
@@ -911,74 +939,74 @@ bot_teleport_think()
         host_player.ignoreme = true;
         host_player.takedamage = false;
         
-		// Try to find a valid node near the host player
-		safe_node = GetNearestNode(host_player.origin);
-		teleport_succeeded = false;
-		
-		if(isDefined(safe_node))
-		{
-			// Check if node is on navmesh and accessible
-			if(NodeVisible(safe_node.origin, host_player.origin))
-			{
-				// Teleport to the safe node
-				self SetOrigin(safe_node.origin);
-				// Make bot look at the player
-				self SetPlayerAngles(VectorToAngles(host_player.origin - self.origin));
-				teleport_succeeded = true;
-				//iprintln("^3Bot teleported to safe node");
-			}
-		}
-		
-		// If no safe node found, try to find any valid position near the player
-		if(!teleport_succeeded)
-		{
+                // Try to find a valid node near the host player
+                safe_node = GetNearestNode(host_player.origin);
+                teleport_succeeded = false;
+                dest = undefined;
+
+                if(isDefined(safe_node) && NodeVisible(safe_node.origin, host_player.origin))
+                {
+                        dest = safe_node.origin + (randomfloatrange(-20,20), randomfloatrange(-20,20), 0);
+                        teleport_succeeded = true;
+                }
+
+                // If no safe node found, try to find any valid position near the player
+                if(!teleport_succeeded)
+                {
             test_positions = array();
             test_positions[0] = host_player.origin + (50, 0, 0);
             test_positions[1] = host_player.origin + (0, 50, 0);
             test_positions[2] = host_player.origin + (-50, 0, 0);
             test_positions[3] = host_player.origin + (0, -50, 0);
-            
+
             foreach(pos in test_positions)
             {
                 // Try to find a path to validate the position
-                if(SightTracePassed(pos, pos + (0, 0, 50), false, undefined) && 
+                if(SightTracePassed(pos, pos + (0, 0, 50), false, undefined) &&
                    !SightTracePassed(pos, pos - (0, 0, 50), false, undefined))
                 {
-                    // Position is valid - above ground but not inside ceiling
-                    self SetOrigin(pos);
-                    self SetPlayerAngles(VectorToAngles(host_player.origin - self.origin));
+                    dest = pos;
                     teleport_succeeded = true;
-                    //iprintln("^3Bot teleported to offset position");
                     break;
                 }
             }
-		}
-		
-		// Last resort - teleport directly to player with small height offset
-		if(!teleport_succeeded)
-		{
-            // This is risky but better than being stuck far away
-            self SetOrigin(host_player.origin + (0, 0, 5));
-            //iprintln("^1Bot teleported directly to player (fallback)");
-		}
-        
-        // Give invulnerability to any players near teleport destination
+                }
+
+                // Last resort - teleport directly to player with small height offset
+                if(!teleport_succeeded)
+                {
+            dest = host_player.origin + (randomfloatrange(-20,20), randomfloatrange(-20,20), 5);
+                }
+
+        // Adjust destination if players are too close and protect them before teleporting
         teleport_radius = 100; // Check players within this radius
         all_players = GetPlayers();
         nearby_players = [];
-        
+
         foreach(player in all_players)
         {
-            if(Distance(player.origin, self.origin) < teleport_radius && player != self)
+            if(player != self && Distance(player.origin, dest) < teleport_radius)
+            {
+                dir = VectorNormalize(dest - player.origin);
+                dest = player.origin + dir * teleport_radius;
+            }
+        }
+
+        foreach(player in all_players)
+        {
+            if(player != self && Distance(player.origin, dest) < teleport_radius)
             {
                 player.ignoreme = true;
                 player.takedamage = false;
                 nearby_players[nearby_players.size] = player;
             }
         }
+
+        self SetOrigin(dest);
+        self SetPlayerAngles(VectorToAngles(host_player.origin - self.origin));
         
         // Wait for a brief period of invulnerability
-        wait 2.5;
+        wait 5;
         
         // Restore normal state for bot
         if(isDefined(self))
@@ -1391,18 +1419,21 @@ bot_buy_wallbuy()
 	weapon = self GetCurrentWeapon();
 	weaponToBuy = undefined;
 	wallbuys = array_randomize(level._spawned_wallbuys);
-	foreach(wallbuy in wallbuys)
-	{
-		if(Distance(wallbuy.origin, self.origin) < 400 && wallbuy.trigger_stub.cost <= self.score && bot_best_gun(wallbuy.trigger_stub.zombie_weapon_upgrade, weapon) && FindPath(self.origin, wallbuy.origin, undefined, 0, 1) && weapon != wallbuy.trigger_stub.zombie_weapon_upgrade && !is_offhand_weapon( wallbuy.trigger_stub.zombie_weapon_upgrade  ))
-		{
-			if(!isdefined(wallbuy.trigger_stub))
-				return;
-			if(!isdefined(wallbuy.trigger_stub.zombie_weapon_upgrade))
-				return;
-			weaponToBuy = wallbuy;
-			break;
-		}
-	}
+        foreach(wallbuy in wallbuys)
+        {
+                if(!isDefined(wallbuy) || !isDefined(wallbuy.trigger_stub) || !isDefined(wallbuy.trigger_stub.zombie_weapon_upgrade))
+                        continue;
+
+                // Skip the Olympia wallbuy
+                if(IsSubStr(wallbuy.trigger_stub.zombie_weapon_upgrade, "rottweil72"))
+                        continue;
+
+                if(Distance(wallbuy.origin, self.origin) < 400 && wallbuy.trigger_stub.cost <= self.score && bot_best_gun(wallbuy.trigger_stub.zombie_weapon_upgrade, weapon) && FindPath(self.origin, wallbuy.origin, undefined, 0, 1) && weapon != wallbuy.trigger_stub.zombie_weapon_upgrade && !is_offhand_weapon( wallbuy.trigger_stub.zombie_weapon_upgrade  ))
+                {
+                        weaponToBuy = wallbuy;
+                        break;
+                }
+        }
 	if(!isdefined(weaponToBuy))
 		return;
 	self AddGoal(weaponToBuy.origin, 75, 2, "weaponBuy");
@@ -1434,17 +1465,17 @@ bot_buy_door()
 
         // Get all potential doors
         doors = getEntArray("zombie_door", "targetname");
-        
+
         // Find the closest valid door
         closestDoor = undefined;
-        closestDist = 300; // Reduced max distance for realism
+        closestDist = 99999;
 
         foreach(door in doors)
         {
             // Skip if door is already opened
             if(isDefined(door._door_open) && door._door_open)
                 continue;
-                
+
             if(isDefined(door.has_been_opened) && door.has_been_opened)
                 continue;
 
@@ -1466,18 +1497,30 @@ bot_buy_door()
                 }
             }
 
-            // Check distance
+            // Check distance and path
             dist = Distance(self.origin, door.origin);
-            if(dist < closestDist)
+            if(dist < closestDist && FindPath(self.origin, door.origin, undefined, 0, 1))
             {
                 closestDoor = door;
                 closestDist = dist;
             }
         }
 
-        // If we found a valid door and we're close enough, try to buy it
+        // If we found a valid door, move to it and try to buy
         if(isDefined(closestDoor))
         {
+            self AddGoal(closestDoor.origin, 50, 2, "doorBuy");
+            while(!self AtGoal("doorBuy") && Distance(self.origin, closestDoor.origin) > 75)
+            {
+                wait 1;
+                if(self maps\mp\zombies\_zm_laststand::player_is_in_laststand())
+                {
+                    self CancelGoal("doorBuy");
+                    return false;
+                }
+            }
+            self CancelGoal("doorBuy");
+
             // Add human-like hesitation
             if(randomfloat(1) < 0.15)
             {
@@ -1489,26 +1532,15 @@ bot_buy_door()
             self lookat(closestDoor.origin + aim_offset);
             wait randomfloatrange(0.5, 1.5);
 
-            // Deduct points first
-            self maps\mp\zombies\_zm_score::minus_to_player_score(closestDoor.zombie_cost);
-            
-            // Try to call door_buy first, if that function exists on the door
-            if(isDefined(closestDoor.door_buy))
-            {
-                closestDoor thread door_buy();
-            }
-            // Otherwise fallback to direct door_opened call
+            // Simulate player use input
+            self UseButtonPressed();
+
+            // Trigger the door normally so scripts handle cost and state
+            if(isDefined(closestDoor.trigger))
+                closestDoor.trigger notify("trigger", self);
             else
-            {
-                closestDoor thread maps\mp\zombies\_zm_blockers::door_opened(closestDoor.zombie_cost);
-            }
-            
-            // Mark door as opened
-            closestDoor._door_open = 1;
-            closestDoor.has_been_opened = 1;
-            
-            // Play purchase sound
-            self PlaySound("zmb_cha_ching");
+                closestDoor notify("trigger", self);
+
             return true;
         }
     }
@@ -1721,9 +1753,9 @@ bot_should_pack()
 
 bot_wakeup_think()
 {
-	self endon( "death" );
-	self endon( "disconnect" );
-	level endon( "game_ended" );
+        self endon( "death" );
+        self endon( "disconnect" );
+        level endon( "game_ended" );
 	for ( ;; )
 	{
 		wait self.bot.think_interval;
@@ -2020,6 +2052,10 @@ bot_should_take_weapon(boxWeapon, currentWeapon)
 {
     if(!isDefined(boxWeapon))
         return false;
+
+    // Never take monkey bombs from the box
+    if(IsSubStr(boxWeapon, "cymbal_monkey") || IsSubStr(boxWeapon, "monkey"))
+        return false;
     
     // Check if we already have this weapon
     if(self HasWeapon(boxWeapon))
@@ -2039,7 +2075,7 @@ bot_should_take_weapon(boxWeapon, currentWeapon)
     tier1_weapons = array("raygun_", "thunder", "wave_gun", "mark2", "tesla");
     tier2_weapons = array("galil", "an94", "hamr", "rpd", "lsat", "dsr50");
     tier3_weapons = array("mp5k", "pdw57", "mtar", "mp40", "ak74u", "qcw05");
-    tier4_weapons = array("m14", "870mcs", "r870", "olympia", "fnfal");
+    tier4_weapons = array("m14", "870mcs", "r870", "fnfal");
     
     // Track if current weapon is in specific tier
     currentIsTier1 = false;
@@ -2228,20 +2264,44 @@ bot_manage_ammo()
     // Wait for the bot to be fully initialized
     wait 1;
 
-    // Dvar to control infinite ammo (1 = enabled, 0 = disabled)
-    // Default to enabled (1) if Dvar is not set
-    infinite_ammo_enabled = GetDvarIntDefault("bo2_zm_bots_infinite_ammo", 0);
+    // Always provide infinite ammo to bots
+    self thread bot_give_max_ammo_loop();
+}
 
-    if (infinite_ammo_enabled == 1)
-    {
-        // If infinite ammo is enabled, run the max ammo loop
-        self thread bot_give_max_ammo_loop();
-    }
-    else
-    {
-        // If infinite ammo is disabled, run the ammo buying loop
-        self thread bot_buy_ammo_loop();
-    }
+bot_loop_watchdog()
+{
+        self endon("death");
+        self endon("disconnect");
+        level endon("game_ended");
+        for(;;)
+        {
+                wait 10;
+                if(!isDefined(self.bot.last_loop_time) || GetTime() - self.bot.last_loop_time > 5000)
+                {
+                        self thread bot_wakeup_think();
+                        self thread bot_damage_think();
+                        self notify("wakeup");
+                }
+        }
+}
+
+// Continuously knife if a Denizen (screecher) attaches to the bot
+bot_screecher_melee_monitor()
+{
+        self endon("death");
+        self endon("disconnect");
+        level endon("game_ended");
+        for(;;)
+        {
+                if(isDefined(self.screecher))
+                {
+                        self allowattack(0);
+                        self pressmelee();
+                        wait 0.05;
+                        continue;
+                }
+                wait 0.1;
+        }
 }
 
 // Loop to continuously give max ammo if infinite ammo is enabled

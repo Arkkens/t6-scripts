@@ -6,16 +6,26 @@
 
 bot_combat_think( damage, attacker, direction )
 {
-	self allowattack( 0 );
-	self pressads( 0 );
-	for ( ;; )
-	{
-		if ( !bot_can_do_combat() )
-		{
-			return;
-		}
-		if(self atgoal("flee"))
-			self cancelgoal("flee");
+        self allowattack( 0 );
+        self pressads( 0 );
+        for ( ;; )
+        {
+                if ( !bot_can_do_combat() )
+                {
+                        return;
+                }
+                if(self atgoal("flee"))
+                        self cancelgoal("flee");
+
+                // If a Denizen (screecher) is riding the bot, spam melee until it's gone
+                if ( isdefined( self.screecher ) )
+                {
+                        self allowattack( 0 );
+                        self pressmelee();
+                        wait 0.05;
+                        continue;
+                }
+
 		//FLEE CODE. IF ZOMBIE IS CLOSE TO BOT, BOT WILL TRY TO FIND A PLACE TO RUN AWAY
 		//LOOKING FOR ANOTHER ALTERNATIVE IF DOORS ARE CLOSED AND THE BOT CAN NOT REACH SAID PATH.
 		if(Distance(self.origin, self.bot.threat.position) <= 75 || isdefined(damage))
@@ -95,21 +105,25 @@ bot_safely_interact_with_doors()
 		}
 	}
 	
-	// If we're near a door, try to open it safely
-	if(isDefined(closest_door))
-	{
-		// Set global flag to prevent other bots from trying at the same time
-		level.door_being_opened = true;
-		
-		// Try to open the door
-		self UseButtonPressed();
-		
-		// Wait a bit for door to process
-		wait 0.5;
-		
-		// Reset flag so other bots can try later
-		level.door_being_opened = false;
-	}
+        // If we're near a door, try to open it safely
+        if(isDefined(closest_door))
+        {
+                level.door_being_opened = true;
+
+                // Pay the door cost if affordable
+                cost = 0;
+                if(isDefined(closest_door.zombie_cost))
+                        cost = closest_door.zombie_cost;
+                if(self.score >= cost)
+                {
+                        self maps\mp\zombies\_zm_score::minus_to_player_score(cost);
+                        // Force the door to trigger without needing a physical use press
+                        closest_door notify("trigger", self, 1);
+                        wait 0.5;
+                }
+
+                level.door_being_opened = false;
+        }
 }
 
 // Prevents bots from using mystery boxes that have teddy bears
@@ -209,17 +223,32 @@ array_combine(array1, array2)
 
 bot_combat_main() //checked partially changed to match cerberus output changed at own discretion
 {
-	weapon = self getcurrentweapon();
-	currentammo = self getweaponammoclip( weapon ) + self getweaponammostock( weapon );
-	if ( !currentammo )
-	{
-		return;
-	}
-	time = getTime();
-	if ( !self bot_should_hip_fire() && self.bot.threat.dot > 0.96 )
-	{
-		ads = 1;
-	}
+        weapon = self getcurrentweapon();
+        currentammo = self getweaponammoclip( weapon ) + self getweaponammostock( weapon );
+        if ( !currentammo )
+        {
+                return;
+        }
+        // Avoid attacking when only one zombie remains
+        if ( maps\mp\zombies\_zm_utility::get_current_zombie_count() <= 1 )
+        {
+                self allowattack( 0 );
+                self bot_clear_enemy();
+                return;
+        }
+
+        enemy = self.bot.threat.entity;
+        if ( isDefined( enemy ) && Distance( self.origin, enemy.origin ) < 70 )
+        {
+                self allowattack( 0 );
+                self pressmelee();
+                return;
+        }
+        time = getTime();
+        if ( !self bot_should_hip_fire() && self.bot.threat.dot > 0.96 )
+        {
+                ads = 1;
+        }
 	if ( ads )
 	{
 		self pressads( 1 );
