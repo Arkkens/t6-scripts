@@ -768,6 +768,7 @@ bot_main()
         self thread bot_reset_flee_goal();
     self thread bot_manage_ammo();
     self thread bot_loop_watchdog();
+    self thread bot_screecher_melee_monitor();
     // If on Origins map, handle generator purchases
     if (level.script == "zm_tomb")
         self thread bot_origins_think();
@@ -938,71 +939,71 @@ bot_teleport_think()
         host_player.ignoreme = true;
         host_player.takedamage = false;
         
-		// Try to find a valid node near the host player
-		safe_node = GetNearestNode(host_player.origin);
-		teleport_succeeded = false;
-		
-                if(isDefined(safe_node))
+                // Try to find a valid node near the host player
+                safe_node = GetNearestNode(host_player.origin);
+                teleport_succeeded = false;
+                dest = undefined;
+
+                if(isDefined(safe_node) && NodeVisible(safe_node.origin, host_player.origin))
                 {
-                        // Check if node is on navmesh and accessible
-                        if(NodeVisible(safe_node.origin, host_player.origin))
-                        {
-                                // Teleport to the safe node
-                                self SetOrigin(safe_node.origin + (randomfloatrange(-20,20), randomfloatrange(-20,20), 0));
-                                // Make bot look at the player
-                                self SetPlayerAngles(VectorToAngles(host_player.origin - self.origin));
-                                teleport_succeeded = true;
-                                //iprintln("^3Bot teleported to safe node");
-                        }
+                        dest = safe_node.origin + (randomfloatrange(-20,20), randomfloatrange(-20,20), 0);
+                        teleport_succeeded = true;
                 }
-		
-		// If no safe node found, try to find any valid position near the player
-		if(!teleport_succeeded)
-		{
+
+                // If no safe node found, try to find any valid position near the player
+                if(!teleport_succeeded)
+                {
             test_positions = array();
             test_positions[0] = host_player.origin + (50, 0, 0);
             test_positions[1] = host_player.origin + (0, 50, 0);
             test_positions[2] = host_player.origin + (-50, 0, 0);
             test_positions[3] = host_player.origin + (0, -50, 0);
-            
+
             foreach(pos in test_positions)
             {
                 // Try to find a path to validate the position
-                if(SightTracePassed(pos, pos + (0, 0, 50), false, undefined) && 
+                if(SightTracePassed(pos, pos + (0, 0, 50), false, undefined) &&
                    !SightTracePassed(pos, pos - (0, 0, 50), false, undefined))
                 {
-                    // Position is valid - above ground but not inside ceiling
-                    self SetOrigin(pos);
-                    self SetPlayerAngles(VectorToAngles(host_player.origin - self.origin));
+                    dest = pos;
                     teleport_succeeded = true;
-                    //iprintln("^3Bot teleported to offset position");
                     break;
                 }
             }
-		}
-		
-		// Last resort - teleport directly to player with small height offset
-		if(!teleport_succeeded)
-		{
-            // This is risky but better than being stuck far away
-            self SetOrigin(host_player.origin + (randomfloatrange(-20,20), randomfloatrange(-20,20), 5));
-            //iprintln("^1Bot teleported directly to player (fallback)");
-		}
-        
-        // Give invulnerability to any players near teleport destination
+                }
+
+                // Last resort - teleport directly to player with small height offset
+                if(!teleport_succeeded)
+                {
+            dest = host_player.origin + (randomfloatrange(-20,20), randomfloatrange(-20,20), 5);
+                }
+
+        // Adjust destination if players are too close and protect them before teleporting
         teleport_radius = 100; // Check players within this radius
         all_players = GetPlayers();
         nearby_players = [];
-        
+
         foreach(player in all_players)
         {
-            if(Distance(player.origin, self.origin) < teleport_radius && player != self)
+            if(player != self && Distance(player.origin, dest) < teleport_radius)
+            {
+                dir = VectorNormalize(dest - player.origin);
+                dest = player.origin + dir * teleport_radius;
+            }
+        }
+
+        foreach(player in all_players)
+        {
+            if(player != self && Distance(player.origin, dest) < teleport_radius)
             {
                 player.ignoreme = true;
                 player.takedamage = false;
                 nearby_players[nearby_players.size] = player;
             }
         }
+
+        self SetOrigin(dest);
+        self SetPlayerAngles(VectorToAngles(host_player.origin - self.origin));
         
         // Wait for a brief period of invulnerability
         wait 5;
@@ -2274,12 +2275,32 @@ bot_loop_watchdog()
         level endon("game_ended");
         for(;;)
         {
-                wait 30;
+                wait 10;
                 if(!isDefined(self.bot.last_loop_time) || GetTime() - self.bot.last_loop_time > 5000)
                 {
                         self thread bot_wakeup_think();
+                        self thread bot_damage_think();
                         self notify("wakeup");
                 }
+        }
+}
+
+// Continuously knife if a Denizen (screecher) attaches to the bot
+bot_screecher_melee_monitor()
+{
+        self endon("death");
+        self endon("disconnect");
+        level endon("game_ended");
+        for(;;)
+        {
+                if(isDefined(self.screecher))
+                {
+                        self allowattack(0);
+                        self pressmelee();
+                        wait 0.05;
+                        continue;
+                }
+                wait 0.1;
         }
 }
 
