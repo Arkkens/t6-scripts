@@ -26,29 +26,6 @@ bot_combat_think( damage, attacker, direction )
                         continue;
                 }
 
-                // Avoid attacking when only one zombie remains
-                if ( maps\mp\zombies\_zm_utility::get_current_zombie_count() <= 1 )
-                {
-                        self allowattack( 0 );
-                        if ( isDefined( self.bot.threat.position ) && Distance( self.origin, self.bot.threat.position ) <= 256 )
-                        {
-                                nodes = getnodesinradiussorted( self.origin, 1024, 256, 512 );
-                                nearest = bot_nearest_node( self.origin );
-                                if ( isDefined( nearest ) && !self hasgoal( "flee" ) )
-                                {
-                                        foreach ( node in nodes )
-                                        {
-                                                if ( !NodeVisible( nearest.origin, node.origin ) && FindPath( self.origin, node.origin, undefined, 0, 1 ) )
-                                                {
-                                                        self addgoal( node.origin, 24, 4, "flee" );
-                                                        break;
-                                                }
-                                        }
-                                }
-                        }
-                        wait 0.05;
-                        continue;
-                }
 		//FLEE CODE. IF ZOMBIE IS CLOSE TO BOT, BOT WILL TRY TO FIND A PLACE TO RUN AWAY
 		//LOOKING FOR ANOTHER ALTERNATIVE IF DOORS ARE CLOSED AND THE BOT CAN NOT REACH SAID PATH.
 		if(Distance(self.origin, self.bot.threat.position) <= 75 || isdefined(damage))

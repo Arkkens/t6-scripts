@@ -773,38 +773,53 @@ bot_main()
 	for ( ;; )
 	{
 		self waittill( "wakeup", damage, attacker, direction );
-		if( self isremotecontrolling())
-		{
-			continue;
-		}
-		else
-		{
-			self bot_combat_think( damage, attacker, direction );
-			self bot_update_follow_host();
-			self bot_update_lookat();
-			self bot_teleport_think();
-			if(is_true(level.using_bot_weapon_logic))
-			{
-				self bot_buy_perks();
-				self bot_buy_wallbuy();
-				self bot_pack_gun();
-				
-			}
-			if(is_true(level.using_bot_revive_logic))
-			{
-				self bot_revive_teammates();
-			}
-			self bot_pickup_powerup();
-			self bot_buy_door();  // Added door buying functionality
-			self bot_clear_debris();  // Added debris clearing functionality
-			self bot_buy_box();  // Added box buying functionality
+                if( self isremotecontrolling())
+                {
+                        continue;
+                }
+                else
+                {
+                        if ( maps\mp\zombies\_zm_utility::get_current_zombie_count() <= 1 )
+                        {
+                                self allowattack( 0 );
+                                self.ignoreme = true;
+                                self.takedamage = false;
+                        }
+                        else
+                        {
+                                if ( self.takedamage == false )
+                                {
+                                        self.takedamage = true;
+                                        self.ignoreme = false;
+                                }
+                                self bot_combat_think( damage, attacker, direction );
+                        }
 
-			// Add Origins specific generator activation
-			if(level.script == "zm_tomb")
-			{
-				self thread scripts\zm\zm_bo2_bots_origins::bot_activate_generator();
-			}
-		}	
+                        self bot_update_follow_host();
+                        self bot_update_lookat();
+                        self bot_teleport_think();
+                        if(is_true(level.using_bot_weapon_logic))
+                        {
+                                self bot_buy_perks();
+                                self bot_buy_wallbuy();
+                                self bot_pack_gun();
+
+                        }
+                        if(is_true(level.using_bot_revive_logic))
+                        {
+                                self bot_revive_teammates();
+                        }
+                        self bot_pickup_powerup();
+                        self bot_buy_door();  // Added door buying functionality
+                        self bot_clear_debris();  // Added debris clearing functionality
+                        self bot_buy_box();  // Added box buying functionality
+
+                        // Add Origins specific generator activation
+                        if(level.script == "zm_tomb")
+                        {
+                                self thread scripts\zm\zm_bo2_bots_origins::bot_activate_generator();
+                        }
+                }
 	}
 }
 
