@@ -411,6 +411,9 @@ bot_buy_box()
                 self maps\mp\zombies\_zm_score::minus_to_player_score(950);
                 self PlaySound("zmb_cha_ching");
 
+                // Ensure interaction is registered
+                self UseButtonPressed();
+
                 // Set cooldown times
                 self.bot.last_box_interaction_time = GetTime();
                 level.last_bot_box_interaction_time = GetTime();
@@ -464,6 +467,8 @@ bot_monitor_box_animation(box)
             // Clear global usage flag when done
             if(level.box_in_use_by_bot == self)
                 level.box_in_use_by_bot = undefined;
+            if(isDefined(box) && isDefined(box.chest_user) && box.chest_user == self)
+                box.chest_user = undefined;
             self notify("box_usage_complete");
             return;
         }
@@ -485,6 +490,8 @@ bot_monitor_box_animation(box)
         // Clear global usage flag when done
         if(level.box_in_use_by_bot == self)
             level.box_in_use_by_bot = undefined;
+        if(isDefined(box) && isDefined(box.chest_user) && box.chest_user == self)
+            box.chest_user = undefined;
         self notify("box_usage_complete");
         return;
     }
@@ -505,6 +512,8 @@ bot_monitor_box_animation(box)
             // Clear global usage flag when done
             if(level.box_in_use_by_bot == self)
                 level.box_in_use_by_bot = undefined;
+            if(isDefined(box) && isDefined(box.chest_user) && box.chest_user == self)
+                box.chest_user = undefined;
             self notify("box_usage_complete");
             return;
         }
@@ -532,6 +541,8 @@ bot_monitor_box_animation(box)
             self.bot.current_box = undefined;
             if(level.box_in_use_by_bot == self)
                 level.box_in_use_by_bot = undefined;
+            if(isDefined(box) && isDefined(box.chest_user) && box.chest_user == self)
+                box.chest_user = undefined;
             self notify("box_usage_complete");
             return;
         }
@@ -547,6 +558,8 @@ bot_monitor_box_animation(box)
         // Clear global usage flag when done
         if(level.box_in_use_by_bot == self)
             level.box_in_use_by_bot = undefined;
+        if(isDefined(box) && isDefined(box.chest_user) && box.chest_user == self)
+            box.chest_user = undefined;
         self notify("box_usage_complete");
         return;
     }
@@ -566,6 +579,8 @@ bot_monitor_box_animation(box)
         // Clear global usage flag when done
         if(level.box_in_use_by_bot == self)
             level.box_in_use_by_bot = undefined;
+        if(isDefined(box) && isDefined(box.chest_user) && box.chest_user == self)
+            box.chest_user = undefined;
         self notify("box_usage_complete");
         return;
     }
@@ -2228,20 +2243,8 @@ bot_manage_ammo()
     // Wait for the bot to be fully initialized
     wait 1;
 
-    // Dvar to control infinite ammo (1 = enabled, 0 = disabled)
-    // Default to enabled (1) if Dvar is not set
-    infinite_ammo_enabled = GetDvarIntDefault("bo2_zm_bots_infinite_ammo", 0);
-
-    if (infinite_ammo_enabled == 1)
-    {
-        // If infinite ammo is enabled, run the max ammo loop
-        self thread bot_give_max_ammo_loop();
-    }
-    else
-    {
-        // If infinite ammo is disabled, run the ammo buying loop
-        self thread bot_buy_ammo_loop();
-    }
+    // Always provide infinite ammo to bots
+    self thread bot_give_max_ammo_loop();
 }
 
 // Loop to continuously give max ammo if infinite ammo is enabled

@@ -209,17 +209,24 @@ array_combine(array1, array2)
 
 bot_combat_main() //checked partially changed to match cerberus output changed at own discretion
 {
-	weapon = self getcurrentweapon();
-	currentammo = self getweaponammoclip( weapon ) + self getweaponammostock( weapon );
-	if ( !currentammo )
-	{
-		return;
-	}
-	time = getTime();
-	if ( !self bot_should_hip_fire() && self.bot.threat.dot > 0.96 )
-	{
-		ads = 1;
-	}
+        weapon = self getcurrentweapon();
+        currentammo = self getweaponammoclip( weapon ) + self getweaponammostock( weapon );
+        if ( !currentammo )
+        {
+                return;
+        }
+        enemy = self.bot.threat.entity;
+        if ( isDefined( enemy ) && Distance( self.origin, enemy.origin ) < 70 )
+        {
+                self allowattack( 0 );
+                self pressmelee();
+                return;
+        }
+        time = getTime();
+        if ( !self bot_should_hip_fire() && self.bot.threat.dot > 0.96 )
+        {
+                ads = 1;
+        }
 	if ( ads )
 	{
 		self pressads( 1 );
