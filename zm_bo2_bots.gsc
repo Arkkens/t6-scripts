@@ -749,8 +749,11 @@ bot_spawn_init()
 	self.bot.threat.time_first_sight = 0;
 	self.bot.threat.time_recent_sight = 0;
 	self.bot.threat.time_aim_interval = 0;
-	self.bot.threat.time_aim_correct = 0;
-	self.bot.threat.update_riotshield = 0;
+        self.bot.threat.time_aim_correct = 0;
+        self.bot.threat.update_riotshield = 0;
+
+        if(level.script == "zm_transit" || level.script == "zm_transit_dr")
+                self.ignore_lava_damage = 1;
 }
 
 bot_main()
